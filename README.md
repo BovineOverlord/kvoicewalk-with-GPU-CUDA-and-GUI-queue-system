@@ -3,6 +3,24 @@ KVoiceWalk tries to create new [Kokoro](https://github.com/hexgrad/kokoro) voice
 
 This project is only possible because of the incredible work of projects like [Kokoro](https://github.com/hexgrad/kokoro) and [Resemblyzer](https://github.com/resemble-ai/Resemblyzer). I was struck by how small the Kokoro style tensors were and wondered if it would be possible to "evolve" new voice tensors more similar to target audio. The results are promising and this scoring method could be a valid option for a future genetic algorithm. I wanted more voice options for Kokoro, and now I have them.
 
+
+
+## Prerequisites
+- Python `3.10` to `3.12`
+- `uv` installed (`pip install uv`)
+- For GUI mode: Python Tk support (`tkinter`)
+- Optional but recommended: `ffmpeg` for manual audio preprocessing
+
+### GPU/CUDA Prerequisites
+- NVIDIA GPU with recent NVIDIA driver (project tested on RTX 3060)
+- Driver must support modern CUDA runtime (CUDA 12.x class drivers work)
+- CUDA Toolkit is not required separately for this project; CUDA wheels are installed via Python dependencies
+
+After `uv sync`, verify CUDA is available:
+```bash
+uv run python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.version.cuda)"
+```
+
 ## Example Audio
 #### Target Audio File (Generated Using A different text to speech library)
 
@@ -25,29 +43,37 @@ uv venv --python 3.10
 source .venv/bin/activate # '.venv\Scripts\activate' if Windows
 uv sync
 ```
-## Usage
-2. KVoiceWalk expects target audio files to be in Mono 24000 Hz sample rate wav file format; ideally 20-30 seconds of a single speaker. However if needed, Kvoicewalk will check and convert target audio files into the proper format. If you would prefer to prepare them beforehand, you can this use this example ffmpeg command. 
+## Quick Start (Default Mode: GUI)
+Launch the GUI first. This is the recommended/default workflow.
+
+```bash
+uv run gui.py
+```
+
+Use the GUI to queue multiple tasks, then run them sequentially with live logs.
+
+## CLI Usage (Optional)
+If you prefer terminal-only runs, use `main.py` directly.
+
+KVoiceWalk expects target audio files to be Mono 24000 Hz WAV (around 20-30s single speaker). If needed, convert first:
 
 ```bash
 ffmpeg -i input_file.wav -ar 24000 target.wav
 ```
 
-3. Use [uv](https://docs.astral.sh/uv/) to run the application with arguments.
+Example random walk run:
 
 ```bash
-uv run main.py --target_text "The old lighthouse keeper never imagined that one day he'd be guiding ships from the comfort of his living room, but with modern technology and an array of cameras, he did just that, sipping tea while the storm raged outside and gulls shrieked overhead." --target_audio ./example/target.wav
+uv run main.py --target_text "The old lighthouse keeper never imagined that one day he'd be guiding ships from the comfort of his living room, but with modern technology and an array of cameras, he did just that, sipping tea while the storm raged outside and gulls shrieked overhead." --target_audio ./example/target.wav --device cuda --log_interval 100
 ```
 
-4. KVoiceWalk will now go through each voice in the voices folder to find the closest matches to the target file. After narrowing that down using the **population_limit** argument, it will begin to randomly guess and check voices keeping the best voice as the source for the random walk. It will log the progress and save audio and voice tensors to the **out** folder. You can then use these voice tensors in your other projects or generate some audio using the following command.
+Example test voice run:
 
 ```bash
 uv run main.py --test_voice /path/to/voice.pt --target_text "Your really awesome text you want spoken"
 ```
 
-This will generate an audio file called out.wav using the supplied *.pt file you give it. This way you can easily test a variety of voice tensors and input text.
-
-Play with the command line arguments and find what works for you. This is a fairly random process and processing for a long time could suddenly result in a better outcome. You can create a folder of your favorite sounding voices from the other random walks and use that as the basis for interpolation or just use that as the source for the next random walk. You can pass **starting_voice** argument to tell the system exactly what to use as a base if you want. Playing around with the options can get you a voice closer to the style of the target.
-
+This will generate an audio file called out.wav using the supplied *.pt file.
 ## Interpolated Start
 KVoiceWalk has a function to interpolate around the trained voices and determine the best possible starting population of tensors to act as a guide for the random walk function to clone the target voice. Simply run the application as follows to run interpolation first. This does take awhile and having a beefy GPU will help with processing time.
 
@@ -148,3 +174,37 @@ uv run main.py --voices_folder ./voices --export_bin
 "--export_bin", help='Exports target voices in the --voice_folder directory', action='store_true'
 
 "--transcribe_many", help='Input: filepath to wav file or folder\nOutput: Individualized transcriptions in ./texts folder\nTranscribes a target wav or wav folder. Replaces --target_text'
+
+## GPU / CUDA
+KVoiceWalk now supports explicit device selection across Kokoro synthesis, Resemblyzer scoring, and Faster-Whisper transcription.
+
+Use:
+```bash
+uv run main.py --target_text "..." --target_audio /path/to/target.wav --device cuda
+```
+
+Valid options are `--device auto` (default), `--device cpu`, and `--device cuda`.
+If CUDA is requested but unavailable, the app falls back to CPU.
+
+## Recent Updates (April 2026)
+- Added a desktop GUI queue runner: `uv run gui.py`
+- Added queue controls for sequential task execution with live logs
+- Added `--device {auto,cpu,cuda}` support across CLI and GUI
+- Added `--log_interval` (default `100`) to reduce log volume in non-interactive runs
+
+### Logging Control
+For long runs launched from the GUI or any non-interactive process, progress logs are now emitted at intervals instead of every tick.
+
+Example:
+```bash
+uv run main.py --target_text "..." --target_audio ./example/target.wav --device cuda --step_limit 10000 --log_interval 100
+```
+
+### CUDA Performance Note
+Observed on this project setup:
+- CUDA mode VRAM usage: about `4 GB`
+- CPU run: about `26 hours`
+- RTX 3060 CUDA run: about `4 hours`
+- Speedup: about `6.5x`
+
+

@@ -10,9 +10,9 @@ from utilities.speech_generator import SpeechGenerator
 
 
 class InitialSelector:
-    def __init__(self,target_path: str, target_text: str, other_text: str, voice_folder: str = "./voices",) -> None:
-        self.fitness_scorer = FitnessScorer(target_path)
-        self.speech_generator = SpeechGenerator()
+    def __init__(self, target_path: str, target_text: str, other_text: str, voice_folder: str = "./voices", device: str = "auto") -> None:
+        self.fitness_scorer = FitnessScorer(target_path, device=device)
+        self.speech_generator = SpeechGenerator(device=device)
         voices = []
         for filename in os.listdir(voice_folder):
             if filename.endswith('.pt'):
@@ -101,3 +101,4 @@ def interpolate(voice1, voice2, alpha):
     diff_vector = voice1 - voice2
     midpoint = (voice1 + voice2) / 2.0
     return midpoint + (diff_vector * alpha / 2.0)
+

@@ -8,10 +8,13 @@ import soundfile as sf
 from numpy._typing import NDArray
 from resemblyzer import preprocess_wav, VoiceEncoder
 
+from utilities.device_utils import resolve_device
+
 
 class FitnessScorer:
-    def __init__(self,target_path: str):
-        self.encoder = VoiceEncoder()
+    def __init__(self, target_path: str, device: str = "auto"):
+        self.device = resolve_device(device)
+        self.encoder = VoiceEncoder(device=self.device)
         self.target_audio, _ = sf.read(target_path,dtype="float32")
         self.target_wav = preprocess_wav(target_path,source_sr=24000)
         self.target_embed = self.encoder.embed_utterance(self.target_wav)
@@ -209,3 +212,5 @@ class FitnessScorer:
         features["audio_kurtosis"] = float(scipy.stats.kurtosis(audio))
 
         return features
+
+

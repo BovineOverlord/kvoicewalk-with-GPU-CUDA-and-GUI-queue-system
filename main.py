@@ -15,52 +15,92 @@ def main():
     parser = argparse.ArgumentParser(description="A random walk Kokoro voice cloner.")
 
     # Common required arguments
-    parser.add_argument("--target_text", type=str, help="The words contained in the target audio file. Should be around 100-200 tokens (two sentences). Alternatively, can point to a txt file of the transcription.")
+    parser.add_argument(
+        "--target_text",
+        type=str,
+        help="The words contained in the target audio file. Should be around 100-200 tokens (two sentences). Alternatively, can point to a txt file of the transcription.",
+    )
 
     # Optional arguments
-    parser.add_argument("--other_text", type=str,
-                      help="A segment of text used to compare self similarity. Should be around 100-200 tokens.",
-                      default="If you mix vinegar, baking soda, and a bit of dish soap in a tall cylinder, the resulting eruption is both a visual and tactile delight, often used in classrooms to simulate volcanic activity on a miniature scale.")
-    parser.add_argument("--voice_folder", type=str,
-                      help="Path to the voices you want to use as part of the random walk.",
-                      default="./voices")
-    parser.add_argument("--transcribe_start",
-                        help='Input: filepath to wav file\nOutput: Transcription .txt in ./texts\nTranscribes a target wav or wav folder and replaces --target_text',
-                      action='store_true')
-    parser.add_argument("--interpolate_start",
-                      help="Goes through an interpolation search step before random walking",
-                      action='store_true')
-    parser.add_argument("--population_limit", type=int,
-                      help="Limits the amount of voices used as part of the random walk",
-                      default=10)
-    parser.add_argument("--step_limit", type=int,
-                      help="Limits the amount of steps in the random walk",
-                      default=10000)
-    parser.add_argument("--output_name", type=str,
-                      help="Filename for the generated output audio",
-                        default="my_new_voice")
+    parser.add_argument(
+        "--other_text",
+        type=str,
+        help="A segment of text used to compare self similarity. Should be around 100-200 tokens.",
+        default="If you mix vinegar, baking soda, and a bit of dish soap in a tall cylinder, the resulting eruption is both a visual and tactile delight, often used in classrooms to simulate volcanic activity on a miniature scale.",
+    )
+    parser.add_argument(
+        "--voice_folder",
+        type=str,
+        help="Path to the voices you want to use as part of the random walk.",
+        default="./voices",
+    )
+    parser.add_argument(
+        "--transcribe_start",
+        help="Input: filepath to wav file\nOutput: Transcription .txt in ./texts\nTranscribes a target wav or wav folder and replaces --target_text",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--interpolate_start",
+        help="Goes through an interpolation search step before random walking",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--population_limit",
+        type=int,
+        help="Limits the amount of voices used as part of the random walk",
+        default=10,
+    )
+    parser.add_argument(
+        "--step_limit",
+        type=int,
+        help="Limits the amount of steps in the random walk",
+        default=10000,
+    )
+    parser.add_argument(
+        "--log_interval",
+        type=int,
+        help="How often to emit progress logs for non-interactive runs",
+        default=100,
+    )
+    parser.add_argument(
+        "--output_name",
+        type=str,
+        help="Filename for the generated output audio",
+        default="my_new_voice",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="Execution device for Kokoro/Resemblyzer/Whisper. auto chooses CUDA when available.",
+    )
 
     # Arguments for random walk mode
-    group_walk = parser.add_argument_group('Random Walk Mode')
-    group_walk.add_argument("--target_audio", type=str,
-                          help="Path to the target audio file. Must be 24000 Hz mono wav file.")
-    group_walk.add_argument("--starting_voice", type=str,
-                          help="Path to the starting voice tensor")
+    group_walk = parser.add_argument_group("Random Walk Mode")
+    group_walk.add_argument(
+        "--target_audio",
+        type=str,
+        help="Path to the target audio file. Must be 24000 Hz mono wav file.",
+    )
+    group_walk.add_argument("--starting_voice", type=str, help="Path to the starting voice tensor")
 
     # Arguments for test mode
-    group_test = parser.add_argument_group('Test Mode')
-    group_test.add_argument("--test_voice", type=str,
-                          help="Path to the voice tensor you want to test")
+    group_test = parser.add_argument_group("Test Mode")
+    group_test.add_argument("--test_voice", type=str, help="Path to the voice tensor you want to test")
 
     # Arguments for util mode
-    group_util = parser.add_argument_group('Utility Mode')
-    group_util.add_argument("--export_bin",
-                      help='Exports target voices in the --voice_folder directory',
-                      action='store_true')
-    group_util.add_argument("--transcribe_many",
-                            help='Input: filepath to wav file or folder\nOutput: Individualized transcriptions in ./texts folder\nTranscribes a target wav or wav folder. Replaces --target_text', )
+    group_util = parser.add_argument_group("Utility Mode")
+    group_util.add_argument(
+        "--export_bin",
+        help="Exports target voices in the --voice_folder directory",
+        action="store_true",
+    )
+    group_util.add_argument(
+        "--transcribe_many",
+        help="Input: filepath to wav file or folder\nOutput: Individualized transcriptions in ./texts folder\nTranscribes a target wav or wav folder. Replaces --target_text",
+    )
     args = parser.parse_args()
-
 
     # Export Utility
     if args.export_bin:
@@ -68,11 +108,14 @@ def main():
             parser.error("--voice_folder is required to export a voices bin file")
 
         # Collect all .pt file paths
-        file_paths = [os.path.join(args.voice_folder, f) for f in os.listdir(args.voice_folder) if f.endswith('.pt')]
-        voices = load_multiple_voices(file_paths, auto_allow_unsafe=False) # Set True if you prefer to bypass Allow/Repair/Reject voice file menu
+        file_paths = [os.path.join(args.voice_folder, f) for f in os.listdir(args.voice_folder) if f.endswith(".pt")]
+        voices = load_multiple_voices(
+            file_paths,
+            auto_allow_unsafe=False,
+        )  # Set True if you prefer to bypass Allow/Repair/Reject voice file menu
 
         with open("voices.bin", "wb") as f:
-            np.savez(f,**voices)
+            np.savez(f, **voices)
 
         return
 
@@ -83,9 +126,9 @@ def main():
             if target_audio_path.is_file():
                 args.target_audio = convert_to_wav_mono_24k(target_audio_path)
             else:
-                print(f"File not found: {target_audio_path}")
+                parser.error(f"--target_audio file not found: {target_audio_path}")
         except Exception as e:
-            print(f"Error reading target_audio file: {e}")
+            parser.error(f"Error reading --target_audio file: {e}")
 
     # Transcribe (Start Mode)
     if args.transcribe_start:
@@ -93,16 +136,16 @@ def main():
             target_path = Path(args.target_audio)
 
             if target_path.is_file():
-                if target_path.suffix.lower() == '.wav':
+                if target_path.suffix.lower() == ".wav":
                     print(f"Sending {target_path.name} for transcription")
-                    transcriber = Transcriber()
+                    transcriber = Transcriber(device=args.device)
                     args.target_text = transcriber.transcribe(audio_path=target_path)
                 else:
                     try:
                         args.target_audio = convert_to_wav_mono_24k(target_path)
-                        transcriber = Transcriber()
+                        transcriber = Transcriber(device=args.device)
                         args.target_text = transcriber.transcribe(audio_path=target_path)
-                    except:
+                    except Exception:
                         parser.error(f"File format error: {target_path.name} is not a .wav file.")
             elif target_path.is_dir():
                 parser.error("--transcribe_start requires a .wav file only. Use --transcribe_many for directories.")
@@ -119,22 +162,22 @@ def main():
             input_path = Path(args.transcribe_many)
 
             if input_path.is_file():
-                if input_path.suffix.lower() == '.wav':
+                if input_path.suffix.lower() == ".wav":
                     print(f"Sending {input_path.name} for transcription")
-                    transcriber = Transcriber()
+                    transcriber = Transcriber(device=args.device)
                     transcriber.transcribe(audio_path=input_path)
                 else:
                     print(f"File Format Error: {input_path.name} is not an audio file!")
                 return
 
             elif input_path.is_dir():
-                wav_files = list(input_path.glob('*.wav'))
+                wav_files = list(input_path.glob("*.wav"))
                 if not wav_files:
                     # TODO: Handle batch processing of non-wav audios
                     print(f"No .wav files found in {input_path}")
                     return
 
-                transcriber = Transcriber()
+                transcriber = Transcriber(device=args.device)
                 for audio_file in wav_files:
                     print(f"Sending {audio_file.name} for transcription")
                     transcriber.transcribe(audio_path=audio_file)
@@ -149,11 +192,11 @@ def main():
             return
 
     # Handle text input - read from file if it's a .txt file path
-    if args.target_text and args.target_text.endswith('.txt'):
+    if args.target_text and args.target_text.endswith(".txt"):
         try:
             text_path = Path(args.target_text)
             if text_path.is_file():
-                args.target_text = text_path.read_text(encoding='utf-8')
+                args.target_text = text_path.read_text(encoding="utf-8")
             else:
                 print(f"File not found: {text_path}")
         except Exception as e:
@@ -165,7 +208,7 @@ def main():
         if not args.target_text:
             parser.error("--target_text is required when using --test_voice")
 
-        speech_generator = SpeechGenerator()
+        speech_generator = SpeechGenerator(device=args.device)
         audio = speech_generator.generate_audio(args.target_text, args.test_voice)
         sf.write(args.output_name, audio, 24000)
     else:
@@ -175,15 +218,21 @@ def main():
         if not args.target_text:
             parser.error("--target_text is required for random walk mode")
 
-        ktb = KVoiceWalk(args.target_audio,
-                        args.target_text,
-                        args.other_text,
-                        args.voice_folder,
-                        args.interpolate_start,
-                        args.population_limit,
-                         args.starting_voice,
-                         args.output_name)
-        ktb.random_walk(args.step_limit)
+        ktb = KVoiceWalk(
+            args.target_audio,
+            args.target_text,
+            args.other_text,
+            args.voice_folder,
+            args.interpolate_start,
+            args.population_limit,
+            args.starting_voice,
+            args.output_name,
+            args.device,
+        )
+        ktb.random_walk(args.step_limit, args.log_interval)
+
 
 if __name__ == "__main__":
     main()
+
+

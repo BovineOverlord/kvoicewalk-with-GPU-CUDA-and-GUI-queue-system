@@ -6,14 +6,15 @@ import numpy as np
 import soundfile as sf
 from faster_whisper import WhisperModel
 
+from utilities.device_utils import resolve_device
 from utilities.path_router import TEXTS_DIR, CONVERTED_DIR
 
 
 def convert_to_wav_mono_24k(audio_path: Path) -> Path:
     print(f"Converting {audio_path.name} to Mono Wav 24K...")
     try:
-        with sf.SoundFile(audio_path, 'r') as f:
-            if f.format != 'WAV' or f.samplerate != 24000 or f.channels != 1:
+        with sf.SoundFile(audio_path, "r") as f:
+            if f.format != "WAV" or f.samplerate != 24000 or f.channels != 1:
                 # Create output filename with proper audio format
                 converted_audio_file = Path(CONVERTED_DIR / str(audio_path.stem + ".wav"))
 
@@ -32,12 +33,12 @@ def convert_to_wav_mono_24k(audio_path: Path) -> Path:
                     converted_audio_data = librosa.resample(
                         converted_audio_data,
                         orig_sr=f.samplerate,
-                        target_sr=24000
+                        target_sr=24000,
                     )
                     print("Resampled to 24K...")
 
                 # Save converted audio
-                sf.write(converted_audio_file, converted_audio_data, samplerate=24000, format='WAV')
+                sf.write(converted_audio_file, converted_audio_data, samplerate=24000, format="WAV")
                 print(f"{audio_path.name} successfully converted to Mono WAV 24K format: {converted_audio_file}")
                 return converted_audio_file
             else:
@@ -46,33 +47,41 @@ def convert_to_wav_mono_24k(audio_path: Path) -> Path:
 
     except Exception as e:
         print(f"Error converting {audio_path.name}: {e}\n")
+        raise
 
 
 class Transcriber:
-    def __init__(self):
+    def __init__(self, device: str = "auto"):
         model_size = "large-v3"
-        print('Starting Transcriber...')
-        # Run on GPU with FP16
-        # model = WhisperModel(model_size, device="cuda", compute_type="float16")
+        self.device = resolve_device(device)
+        print(f"Starting Transcriber on {self.device}...")
 
-        # or run on GPU with INT8
-        # model = WhisperModel(model_size, device="cuda", compute_type="int8_float16")
-
-        # or run on CPU with INT8 !!(more than sufficient for 30s clip)!!
-        self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        if self.device == "cuda":
+            for compute_type in ("float16", "int8_float16", "float32"):
+                try:
+                    self.model = WhisperModel(model_size, device="cuda", compute_type=compute_type)
+                    print(f"Loaded faster-whisper with compute_type={compute_type}")
+                    break
+                except Exception as e:
+                    print(f"Failed to load CUDA transcriber with compute_type={compute_type}: {e}")
+            else:
+                print("Falling back to CPU transcriber.")
+                self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        else:
+            self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
 
     def transcribe(self, audio_path: Path):
         audio_file = audio_path
         start_time = datetime.datetime.now()
 
         try:
-            print(f'Loading {audio_file.name}...')
+            print(f"Loading {audio_file.name}...")
             segments, info = self.model.transcribe(str(audio_file), beam_size=5)
 
             print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
-            print(f'Transcribing {audio_file.name}...')
+            print(f"Transcribing {audio_file.name}...")
 
-            transcription = ''
+            transcription = ""
             for segment in segments:
                 transcription += segment.text
                 # print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text)) # Optional timestamps if parsing longer audio clips
@@ -91,4 +100,5 @@ class Transcriber:
             print(f"Transcription failed for {audio_file.name} - Error: {e}")
             return
 
-#TODO: Integrate into automated workflows
+
+# TODO: Integrate into automated workflows
